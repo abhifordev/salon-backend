@@ -17,6 +17,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -39,7 +42,6 @@ public class AuthServiceImpl implements AuthService {
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setProvider("LOCAL");
         user.getRoles().add(customerRole);
 
         userRepository.save(user);
@@ -54,12 +56,39 @@ public class AuthServiceImpl implements AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new UnauthorizedException("Invalid credentials");
         }
+//this following line works in authentication but breaks rbac
+//        String accessToken = jwtTokenProvider.generateToken(user.getEmail());
 
-        String accessToken = jwtTokenProvider.generateToken(user.getEmail());
+//        change to this
+        Set<String> roles = user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+
+        String accessToken = jwtTokenProvider.generateToken(user.getEmail(), roles);
+
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
         return new JwtResponse(accessToken, refreshToken);
     }
+//    this refresh flow works for authentication ,breaks rbac
+//
+//    @Override
+//    public JwtResponse refresh(String refreshToken) {
+//
+//        String email = jwtTokenProvider.getUsername(refreshToken);
+//
+//        User user = userRepository.findByEmail(email)
+//                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+//
+//        return new JwtResponse(
+//                jwtTokenProvider.generateToken(user.getEmail()),
+//                jwtTokenProvider.generateRefreshToken(user.getEmail())
+//        );
+//    }
+
+
+//    this is correct refresh flow
 
     @Override
     public JwtResponse refresh(String refreshToken) {
@@ -69,8 +98,13 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
+        Set<String> roles = user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+
         return new JwtResponse(
-                jwtTokenProvider.generateToken(user.getEmail()),
+                jwtTokenProvider.generateToken(user.getEmail(), roles),
                 jwtTokenProvider.generateRefreshToken(user.getEmail())
         );
     }
