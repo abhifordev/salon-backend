@@ -1,0 +1,15 @@
+{
+ "user1": {
+   "email": "admin@salon.com",
+   "password": "admin123",
+   "role": "ROLE_ADMIN"
+ },
+"user2":{"email": "admin1@salon.com",
+  "password": "admin123",
+  "role": "ROLE_ADMIN"},
+
+  "user3":{"email": "admin1@salon.com",
+    "password": "admin123",
+    "role": "ROLE_ADMIN"}
+
+}
