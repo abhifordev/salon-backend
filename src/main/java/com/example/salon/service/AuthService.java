@@ -7,7 +7,11 @@ import com.example.salon.entity.User;
 
 public interface AuthService {
 
+    // PUBLIC → CUSTOMER
     void register(RegisterRequest request);
+
+    // ADMIN → EMPLOYEE
+    void registerEmployee(RegisterRequest request);
 
     JwtResponse login(LoginRequest request);
 

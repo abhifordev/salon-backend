@@ -17,4 +17,7 @@ public class RegisterRequest {
     @NotBlank
     @Size(min = 6)
     private String password;
+
+    private String role; // ROLE_CUSTOMER, ROLE_EMPLOYEE
+
 }

@@ -3,6 +3,7 @@ package com.example.salon.service.impl;
 import com.example.salon.dto.JwtResponse;
 import com.example.salon.dto.LoginRequest;
 import com.example.salon.dto.RegisterRequest;
+import com.example.salon.entity.AuthProvider;
 import com.example.salon.entity.Role;
 import com.example.salon.entity.User;
 import com.example.salon.exception.BadRequestException;
@@ -12,8 +13,8 @@ import com.example.salon.repository.UserRepository;
 import com.example.salon.security.JwtTokenProvider;
 import com.example.salon.service.AuthService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
+    // PUBLIC → CUSTOMER ONLY
     @Override
     public void register(RegisterRequest request) {
 
@@ -37,12 +39,31 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Role customerRole = roleRepository.findByName("ROLE_CUSTOMER")
-                .orElseThrow(() -> new RuntimeException("ROLE_CUSTOMER not found"));
+                .orElseThrow(() -> new RuntimeException("ROLE_CUSTOMER missing"));
 
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setProvider(AuthProvider.LOCAL);
+        user.setEnabled(true);
         user.getRoles().add(customerRole);
+
+        userRepository.save(user);
+    }
+
+    // ADMIN → EMPLOYEE ONLY
+    @Override
+    public void registerEmployee(RegisterRequest request) {
+
+        Role employeeRole = roleRepository.findByName("ROLE_EMPLOYEE")
+                .orElseThrow(() -> new RuntimeException("ROLE_EMPLOYEE missing"));
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setProvider(AuthProvider.LOCAL);
+        user.setEnabled(true);
+        user.getRoles().add(employeeRole);
 
         userRepository.save(user);
     }
@@ -56,39 +77,17 @@ public class AuthServiceImpl implements AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new UnauthorizedException("Invalid credentials");
         }
-//this following line works in authentication but breaks rbac
-//        String accessToken = jwtTokenProvider.generateToken(user.getEmail());
 
-//        change to this
         Set<String> roles = user.getRoles()
                 .stream()
                 .map(Role::getName)
                 .collect(Collectors.toSet());
 
-        String accessToken = jwtTokenProvider.generateToken(user.getEmail(), roles);
-
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
-
-        return new JwtResponse(accessToken, refreshToken);
+        return new JwtResponse(
+                jwtTokenProvider.generateToken(user.getEmail(), roles),
+                jwtTokenProvider.generateRefreshToken(user.getEmail())
+        );
     }
-//    this refresh flow works for authentication ,breaks rbac
-//
-//    @Override
-//    public JwtResponse refresh(String refreshToken) {
-//
-//        String email = jwtTokenProvider.getUsername(refreshToken);
-//
-//        User user = userRepository.findByEmail(email)
-//                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
-//
-//        return new JwtResponse(
-//                jwtTokenProvider.generateToken(user.getEmail()),
-//                jwtTokenProvider.generateRefreshToken(user.getEmail())
-//        );
-//    }
-
-
-//    this is correct refresh flow
 
     @Override
     public JwtResponse refresh(String refreshToken) {
@@ -104,18 +103,25 @@ public class AuthServiceImpl implements AuthService {
                 .collect(Collectors.toSet());
 
         return new JwtResponse(
-                jwtTokenProvider.generateToken(user.getEmail(), roles),
-                jwtTokenProvider.generateRefreshToken(user.getEmail())
+                jwtTokenProvider.generateToken(email, roles),
+                jwtTokenProvider.generateRefreshToken(email)
         );
     }
 
     @Override
     public User getCurrentUser() {
 
-        Authentication auth =
-                SecurityContextHolder.getContext().getAuthentication();
+        Object principal =
+                SecurityContextHolder.getContext()
+                        .getAuthentication()
+                        .getPrincipal();
 
-        return userRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (principal instanceof UserDetails userDetails) {
+            return userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new UnauthorizedException("User not found"));
+        }
+
+        throw new UnauthorizedException("Unauthorized");
     }
+
 }
