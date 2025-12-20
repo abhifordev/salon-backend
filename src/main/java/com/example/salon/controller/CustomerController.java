@@ -1,10 +1,11 @@
 package com.example.salon.controller;
 
-import com.example.salon.dto.CustomerCreateRequest;
-import com.example.salon.dto.CustomerResponse;
+import com.example.salon.dto.*;
 import com.example.salon.service.CustomerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,29 +31,27 @@ public class CustomerController {
         return customerService.getMyProfile();
     }
 
+    // CUSTOMER → update own profile
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @PutMapping("/profile")
+    public CustomerResponse updateProfile(
+            @Valid @RequestBody CustomerUpdateRequest request) {
+        return customerService.updateMyProfile(request);
+    }
+
     // ADMIN → view any customer
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{id}")
     public CustomerResponse getCustomer(@PathVariable Long id) {
         return customerService.getCustomerById(id);
     }
+
+    // ADMIN → list customers (pagination + search)
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public Page<CustomerResponse> listCustomers(
+            @RequestParam(required = false) String search,
+            Pageable pageable) {
+        return customerService.getAllCustomers(search, pageable);
+    }
 }
-
-
-
-
-//package com.example.salon.controller;
-//
-//import org.springframework.security.access.prepost.PreAuthorize;
-//import org.springframework.web.bind.annotation.*;
-//
-//@RestController
-//@RequestMapping("/api/v1/customer")
-//public class CustomerController {
-//
-//    @GetMapping("/profile")
-//    @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN')")
-//    public String profile() {
-//        return "Customer profile";
-//    }
-//}

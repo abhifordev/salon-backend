@@ -40,26 +40,3 @@ public class Role {
 }
 
 
-
-//package com.example.salon.entity;
-//
-//import jakarta.persistence.*;
-//import lombok.*;
-//@Entity
-//@Table(name = "role")
-//@Getter
-//@Setter
-//public class Role {
-//
-//    @Id
-//    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "role_seq")
-//    @SequenceGenerator(
-//            name = "role_seq",
-//            sequenceName = "role_seq",
-//            allocationSize = 1
-//    )
-//    private Long id;
-//
-//    @Column(nullable = false, unique = true)
-//    private String name;
-//}

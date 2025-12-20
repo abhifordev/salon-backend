@@ -1,7 +1,6 @@
 package com.example.salon.service.impl;
 
-import com.example.salon.dto.CustomerCreateRequest;
-import com.example.salon.dto.CustomerResponse;
+import com.example.salon.dto.*;
 import com.example.salon.entity.Customer;
 import com.example.salon.entity.User;
 import com.example.salon.exception.BadRequestException;
@@ -10,6 +9,8 @@ import com.example.salon.repository.CustomerRepository;
 import com.example.salon.repository.UserRepository;
 import com.example.salon.service.CustomerService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -44,18 +45,61 @@ public class CustomerServiceImpl implements CustomerService {
         User user = getCurrentUser();
 
         Customer customer = customerRepository.findByUser(user)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer profile not found"));
+                .orElseThrow(() ->
+                        ResourceNotFoundException.forField(
+                                "Customer",
+                                "user",
+                                user.getEmail()
+                        )
+                );
 
         return map(customer);
+    }
+
+    @Override
+    public CustomerResponse updateMyProfile(CustomerUpdateRequest request) {
+
+        User user = getCurrentUser();
+
+        Customer customer = customerRepository.findByUser(user)
+                .orElseThrow(() ->
+                        ResourceNotFoundException.forField(
+                                "Customer",
+                                "user",
+                                user.getEmail()
+                        )
+                );
+
+        customer.setFullName(request.getFullName());
+        customer.setPhone(request.getPhone());
+        customer.setGender(request.getGender());
+
+        return map(customerRepository.save(customer));
     }
 
     @Override
     public CustomerResponse getCustomerById(Long id) {
 
         Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+                .orElseThrow(() ->
+                        ResourceNotFoundException.forId("Customer", id)
+                );
 
         return map(customer);
+    }
+
+    @Override
+    public Page<CustomerResponse> getAllCustomers(String search, Pageable pageable) {
+
+        Page<Customer> page;
+
+        if (search == null || search.isBlank()) {
+            page = customerRepository.findAll(pageable);
+        } else {
+            page = customerRepository.findByFullNameContainingIgnoreCase(search, pageable);
+        }
+
+        return page.map(this::map);
     }
 
     private User getCurrentUser() {
@@ -65,7 +109,13 @@ public class CustomerServiceImpl implements CustomerService {
                 .getName();
 
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() ->
+                        ResourceNotFoundException.forField(
+                                "User",
+                                "email",
+                                email
+                        )
+                );
     }
 
     private CustomerResponse map(Customer customer) {
